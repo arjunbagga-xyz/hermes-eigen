@@ -86,7 +86,7 @@ def register(ctx) -> None:
 
     ctx.register_hook("pre_llm_call", pre_llm_call_hook)
     ctx.register_hook("post_llm_call", post_llm_call_hook)
-    ctx.register_delegation_provider("eigen", VelvetEigenDelegationProvider())
+    ctx.register_delegation_provider(VelvetEigenDelegationProvider())
 
     skills_dir = Path(__file__).parent / "skills"
     if hasattr(ctx, "register_skill") and skills_dir.exists():
