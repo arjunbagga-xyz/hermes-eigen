@@ -1,0 +1,57 @@
+manifest_version: 2
+name: eigen
+version: 0.1.0
+description: Spectral Graph Laplacian (L) and Fiedler Vector (v_2, lambda_2) zero-conflict
+  subagent partitioner and DelegationProvider for Hermes Agent.
+author: Arjun Bagga <arjunbagga-xyz>
+license: MIT
+homepage: https://github.com/arjunbagga-xyz/hermes-eigen
+repository: https://github.com/arjunbagga-xyz/hermes-eigen
+min_hermes_version: 0.5.0
+max_hermes_version: 1.99.0
+categories:
+- orchestration
+- spectral-graph-theory
+- delegation
+- code-intelligence
+tags:
+- graph-laplacian
+- fiedler-vector
+- algebraic-connectivity
+- subagent-partitioning
+- cheeger-inequality
+requires_env: []
+optional_env: []
+python_dependencies:
+- numpy>=1.26,<3.0
+- scipy>=1.11,<2.0
+- pydantic>=2.5,<3.0
+- fastapi>=0.109,<1.0
+provides_tools:
+- eigen_partition
+- eigen_ast_spectrum
+- eigen_prompt_and_data_partition
+provides_hooks:
+- pre_llm_call
+- post_llm_call
+config_schema:
+  max_subagent_clusters:
+    type: integer
+    default: 4
+    description: Maximum spectral clusters k when recursively partitioning a dependency
+      graph.
+  monolith_lambda2_threshold:
+    type: number
+    default: 0.55
+    description: Algebraic connectivity threshold lambda_2 above which parallel writes
+      risk race conditions.
+web:
+  enabled: true
+  mount_path: /eigen
+desktop:
+  enabled: true
+  entry: desktop/plugin.js
+  surfaces:
+  - transcript
+  - sidebar
+  - statusbar
