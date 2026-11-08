@@ -12,15 +12,13 @@ import numpy as np
 from scipy import linalg
 
 try:
-    from agent.delegation_provider import (
-        DelegationConfig,
-        DelegationProvider,
-        DelegationResult,
-        DelegationTask,
-    )
+    from agent.delegation_provider import DelegationProvider
 except ImportError:
-    class DelegationConfig:  # type: ignore[no-redef]
+    class DelegationProvider:  # type: ignore[no-redef]
         pass
+
+class DelegationConfig:  # type: ignore[no-redef]
+    pass
 
     class DelegationTask:  # type: ignore[no-redef]
         def __init__(self, task_id: str, goal: str, target_files: Optional[List[str]] = None, context: str = "") -> None:
@@ -249,10 +247,28 @@ def handle_eigen_ast_spectrum(args: Dict[str, Any], **kwargs: Any) -> Dict[str, 
 class VelvetEigenDelegationProvider(DelegationProvider):
     """First-class Hermes DelegationProvider that partitions subagent tasks along Fiedler eigen-clusters."""
 
-    name = "eigen"
+    @property
+    def name(self) -> str:
+        return "eigen"
+
+    @property
+    def display_name(self) -> str:
+        return "Eigen Spectral Graph Laplacian"
+
+    @property
+    def summary(self) -> str:
+        return "Spectral Graph Laplacian and Fiedler Vector zero-conflict subagent partitioner."
+
+    def is_available(self) -> bool:
+        return True
 
     def check_availability(self) -> Tuple[bool, str]:
         return True, "Velvet Eigen Spectral Graph Laplacian Partitioner Ready"
+
+    def route_task(self, task: Mapping[str, Any], config: Mapping[str, Any]) -> Dict[str, Any]:
+        route = {k: v for k, v in config.items() if k != "service_tier"}
+        route["label"] = "eigen-fiedler-partition"
+        return route
 
     def run_batch(
         self, tasks: List[DelegationTask], config: Optional[DelegationConfig] = None
