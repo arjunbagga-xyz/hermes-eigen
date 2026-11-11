@@ -11,6 +11,7 @@ from .engine import (
     EIGEN_PROMPT_DATA_SCHEMA,
     LAST_EIGEN_CACHE,
     VelvetEigenDelegationProvider,
+    _ensure_json_str,
     handle_eigen_ast_spectrum,
     handle_eigen_partition,
     handle_eigen_prompt_and_data_partition,
@@ -58,12 +59,20 @@ def post_llm_call_hook(
     return None
 
 
+def _tool_handler(fn):
+    """Wrap a dict-returning engine handler so Hermes tool_call gets a JSON string."""
+    def wrapper(args=None, **kwargs):
+        result = fn(args if args is not None else {}, **kwargs)
+        return _ensure_json_str(result)
+    return wrapper
+
+
 def register(ctx) -> None:
     ctx.register_tool(
         name="eigen_partition",
         toolset="eigen",
         schema=EIGEN_PARTITION_SCHEMA,
-        handler=handle_eigen_partition,
+        handler=_tool_handler(handle_eigen_partition),
         is_async=False,
         emoji="💎",
     )
@@ -71,7 +80,7 @@ def register(ctx) -> None:
         name="eigen_ast_spectrum",
         toolset="eigen",
         schema=EIGEN_AST_SCHEMA,
-        handler=handle_eigen_ast_spectrum,
+        handler=_tool_handler(handle_eigen_ast_spectrum),
         is_async=False,
         emoji="🕸️",
     )
@@ -79,7 +88,7 @@ def register(ctx) -> None:
         name="eigen_prompt_and_data_partition",
         toolset="eigen",
         schema=EIGEN_PROMPT_DATA_SCHEMA,
-        handler=handle_eigen_prompt_and_data_partition,
+        handler=_tool_handler(handle_eigen_prompt_and_data_partition),
         is_async=False,
         emoji="🧩",
     )
