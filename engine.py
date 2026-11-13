@@ -204,7 +204,35 @@ def handle_eigen_ast_spectrum(args: Dict[str, Any], **kwargs: Any) -> Dict[str, 
         return handle_eigen_partition({})
 
     root = Path(directory)
-    py_files = sorted(p for p in root.rglob("*.py") if "__pycache__" not in p.parts)[:30]
+    # Stop after N files or a fixed depth, and skip hidden and vendor dirs
+    SKIP_DIRS = {
+        "__pycache__", ".git", ".hg", ".svn", ".tox", ".venv", "venv", "env",
+        "node_modules", "site-packages", "dist", "build", ".hermes", ".idea", ".vscode"
+    }
+    py_files: List[Path] = []
+    max_files = 30
+    max_depth = 4
+
+    import os
+    try:
+        resolved_root = root.resolve()
+        for current_root, dirs, files in os.walk(str(resolved_root)):
+            rel_path = Path(current_root).relative_to(resolved_root)
+            if len(rel_path.parts) > max_depth:
+                dirs.clear()
+                continue
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in SKIP_DIRS]
+            for f in files:
+                if f.endswith(".py") and not f.startswith("."):
+                    py_files.append(Path(current_root) / f)
+                    if len(py_files) >= max_files:
+                        dirs.clear()
+                        break
+            if len(py_files) >= max_files:
+                break
+    except Exception:
+        pass
+    py_files = sorted(py_files)[:max_files]
     if len(py_files) < 2:
         return handle_eigen_partition({})
 
@@ -270,36 +298,6 @@ class VelvetEigenDelegationProvider(DelegationProvider):
         route["label"] = "eigen-fiedler-partition"
         return route
 
-    def run_batch(
-        self, tasks: List[DelegationTask], config: Optional[DelegationConfig] = None
-    ) -> List[DelegationResult]:
-        all_files: List[str] = []
-        for t in tasks:
-            for f in getattr(t, "target_files", []) or []:
-                if f not in all_files:
-                    all_files.append(f)
-
-        spectrum = handle_eigen_partition({})
-        results: List[DelegationResult] = []
-        for idx, t in enumerate(tasks):
-            assigned_cluster = spectrum["cluster_a"] if idx % 2 == 0 else spectrum["cluster_b"]
-            results.append(
-                DelegationResult(
-                    task_id=getattr(t, "task_id", f"eigen-task-{idx}"),
-                    status="completed",
-                    summary=(
-                        f"Executed in zero-conflict Fiedler eigen-cluster (lambda_2={spectrum['lambda_2_algebraic_connectivity']}, "
-                        f"phi={spectrum['cheeger_conductance_phi']})"
-                    ),
-                    metadata={
-                        "assigned_modules": assigned_cluster,
-                        "boundary_contracts": spectrum["boundary_contracts"],
-                        "lambda_2": spectrum["lambda_2_algebraic_connectivity"],
-                    },
-                )
-            )
-        return results
-
 
 EIGEN_PARTITION_SCHEMA: Dict[str, Any] = {
     "name": "eigen_partition",
@@ -342,14 +340,12 @@ def handle_eigen_prompt_and_data_partition(args: Dict[str, Any], **kwargs: Any) 
          adjacency W_ij = |Corr(X_i, X_j)| and bisecting strongly coupled feature blocks so parallel
          analysis workers never split collinear variables!).
     """
-    prompt_clauses: List[str] = args.get("prompt_subtasks") or [
-        "1. Ingest & validate Hormuz ADS-B telemetry",
-        "2. Compute GNSS NIC/NACp spoofing triangulation",
-        "3. Reconstruct Takens delay attractor on NIC series",
-        "4. Audit auth/jwt.py & auth/models.py token schema",
-        "5. Refactor billing/ledger.py & billing/invoices.py",
-        "6. Verify 100 MW conservation split across clusters",
-    ]
+    prompt_clauses: List[str] = [c for c in (args.get("prompt_subtasks") or []) if isinstance(c, str) and c.strip()]
+    if len(prompt_clauses) < 2:
+        return {
+            "status": "error",
+            "error": "At least 2 prompt subtasks are required for spectral partitioning.",
+        }
 
     # Build lexical/domain coupling adjacency across subtasks
     n = len(prompt_clauses)

@@ -30,19 +30,24 @@ def pre_llm_call_hook(
         else str(user_message or kwargs.get("prompt", ""))
     )
     lower = user_text.lower()
-    if len(user_text.split()) >= 20 and any(k in lower for k in ("parallel", "dataset", ".csv", "refactor", "patch", "modules", "subagent")):
-        spec = handle_eigen_prompt_and_data_partition({})
-        ribbon = (
-            f"[EIGEN_LAPLACIAN_PARTITION | lambda_2={spec['lambda_2_algebraic_connectivity']} | "
-            f"Cheeger_phi={spec['cheeger_conductance_phi']} | Cluster_A={len(spec['cluster_a'])} tasks, Cluster_B={len(spec['cluster_b'])} tasks]"
-        )
-        if payload_dict is not None:
-            existing = str(payload_dict.get("injected_context", ""))
-            payload_dict["injected_context"] = (existing + chr(10) + ribbon).strip()
-            payload_dict["context"] = ribbon
-            payload_dict["eigen_prepartition"] = spec
-            return payload_dict
-        return {"context": ribbon, "eigen_prepartition": spec}
+    import re
+    # Extract candidate subtasks/clauses from the actual user prompt
+    clauses = [c.strip().lstrip("0123456789.-*•) ") for c in re.split(r"[\n;]+", user_text) if c.strip()]
+    meaningful = [c for c in clauses if len(c.split()) >= 3]
+    if len(meaningful) >= 2 and any(k in lower for k in ("parallel", "dataset", ".csv", "refactor", "patch", "modules", "subagent")):
+        spec = handle_eigen_prompt_and_data_partition({"prompt_subtasks": meaningful})
+        if isinstance(spec, dict) and spec.get("status") == "ok":
+            ribbon = (
+                f"[EIGEN_LAPLACIAN_PARTITION | lambda_2={spec['lambda_2_algebraic_connectivity']} | "
+                f"Cheeger_phi={spec['cheeger_conductance_phi']} | Cluster_A={len(spec['cluster_a'])} tasks, Cluster_B={len(spec['cluster_b'])} tasks]"
+            )
+            if payload_dict is not None:
+                existing = str(payload_dict.get("injected_context", ""))
+                payload_dict["injected_context"] = (existing + chr(10) + ribbon).strip()
+                payload_dict["context"] = ribbon
+                payload_dict["eigen_prepartition"] = spec
+                return payload_dict
+            return {"context": ribbon, "eigen_prepartition": spec}
 
     return payload_dict if payload_dict is not None else None
 
